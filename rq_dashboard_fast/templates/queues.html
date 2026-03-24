@@ -1,6 +1,9 @@
 {% extends "base.html" %}{% block content %}
 <script>
-  let autoRefreshInterval;
+  let autoRefreshInterval = null;
+  let lastResponseTime = 0;
+  const MIN_REFRESH_MS = 5000;
+  const MAX_REFRESH_MS = 60000;
   const protocol = '{{ protocol }}';
   const host = window.location.host;
   const prefix = '{{ prefix }}';
@@ -146,16 +149,32 @@
   }
 
   // --- data ---
+  function adaptiveInterval() {
+    if (lastResponseTime === 0) return MIN_REFRESH_MS;
+    return Math.min(MAX_REFRESH_MS, Math.max(MIN_REFRESH_MS, lastResponseTime * 3));
+  }
+
+  function scheduleNextRefresh() {
+    clearTimeout(autoRefreshInterval);
+    if (!window.autoRefreshEnabled) return;
+    autoRefreshInterval = setTimeout(updateQueuesData, adaptiveInterval());
+  }
+
   function updateQueuesData() {
+    var t0 = performance.now();
     fetch(baseurl + '/queues/json')
       .then(function(r) { return r.json(); })
       .then(function(data) {
+        lastResponseTime = performance.now() - t0;
         updateQueuesTable(data);
         updateQueuesCards(data);
+        scheduleNextRefresh();
       })
       .catch(function(error) {
+        lastResponseTime = performance.now() - t0;
         console.error('Error fetching queues data:', error);
         showErrorNotification('Error fetching queues data');
+        scheduleNextRefresh();
       });
   }
 
@@ -275,10 +294,9 @@
 
   // --- autorefresh ---
   function startAutorefresh() {
-    clearInterval(autoRefreshInterval);
-    autoRefreshInterval = setInterval(function() { if (window.autoRefreshEnabled) updateQueuesData(); }, 5000);
+    scheduleNextRefresh();
   }
-  function stopAutorefresh() { clearInterval(autoRefreshInterval); }
+  function stopAutorefresh() { clearTimeout(autoRefreshInterval); autoRefreshInterval = null; }
 
   document.addEventListener('DOMContentLoaded', function() {
     applyView(getActiveView());

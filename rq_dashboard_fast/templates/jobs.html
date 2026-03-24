@@ -1,6 +1,9 @@
 {% extends "base.html" %}{% block content %}
 <script>
-  let autoRefreshInterval;
+  let autoRefreshInterval = null;
+  let lastResponseTime = 0;
+  const MIN_REFRESH_MS = 5000;
+  const MAX_REFRESH_MS = 60000;
   const protocol = "{{ protocol }}";
   const host = window.location.host;
   const prefix = "{{ prefix }}";
@@ -45,13 +48,24 @@
     setTimeout(function () { document.body.removeChild(notification); }, 3000);
   }
 
+  function adaptiveInterval() {
+    if (lastResponseTime === 0) return MIN_REFRESH_MS;
+    return Math.min(MAX_REFRESH_MS, Math.max(MIN_REFRESH_MS, lastResponseTime * 3));
+  }
+
+  function scheduleNextRefresh() {
+    clearTimeout(autoRefreshInterval);
+    if (!window.autoRefreshEnabled) return;
+    autoRefreshInterval = setTimeout(updateJobsData, adaptiveInterval());
+  }
+
   function startAutorefresh() {
-    clearInterval(autoRefreshInterval);
-    autoRefreshInterval = setInterval(function () { if (window.autoRefreshEnabled) updateJobsData(); }, 5000);
+    scheduleNextRefresh();
   }
 
   function stopAutorefresh() {
-    clearInterval(autoRefreshInterval);
+    clearTimeout(autoRefreshInterval);
+    autoRefreshInterval = null;
   }
 
   let page = 1;
@@ -124,22 +138,27 @@
     var safePerPage = (Number.isFinite(perPage) && perPage > 0) ? perPage : 10;
     page = safePage;
     perPage = safePerPage;
+    var t0 = performance.now();
     fetch(baseurl + "/jobs/json?state=" + selectedState + "&queue_name=" + selectedQueue + "&page=" + safePage + "&per_page=" + safePerPage)
       .then(function (r) {
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.json();
       })
       .then(function (response) {
+        lastResponseTime = performance.now() - t0;
         totalPages = response.total_pages;
         totalJobs = response.total;
         page = response.page;
         perPage = response.per_page;
         updateJobsTable(response.data);
         renderPagination();
+        scheduleNextRefresh();
       })
       .catch(function (error) {
+        lastResponseTime = performance.now() - t0;
         console.error("Error fetching jobs data: ", error);
         showErrorNotification("Error fetching jobs data");
+        scheduleNextRefresh();
       });
   }
 
