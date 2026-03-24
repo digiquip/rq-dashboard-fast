@@ -349,7 +349,7 @@ class RedisQueueDashboard(FastAPI):
                 )
 
         @self.get("/queues", response_class=HTMLResponse)
-        async def read_queues(request: Request, view: str = Query(None)):
+        async def read_queues_html(request: Request, view: str = Query(None)):
             try:
                 perms = _get_permissions(request)
                 queue_data = get_job_registry_amount(
@@ -406,7 +406,7 @@ class RedisQueueDashboard(FastAPI):
                 )
 
         @self.get("/queues/json", response_model=list[QueueRegistryStats])
-        async def read_queues(request: Request):
+        async def read_queues_json(request: Request):
             try:
                 perms = _get_permissions(request)
                 queue_data = get_job_registry_amount(
@@ -424,7 +424,7 @@ class RedisQueueDashboard(FastAPI):
                 )
 
         @self.get("/jobs", response_class=HTMLResponse)
-        async def read_jobs(
+        async def read_jobs_html(
             request: Request,
             queue_name: str = Query("all"),
             state: str = Query("all"),
@@ -467,7 +467,7 @@ class RedisQueueDashboard(FastAPI):
                 )
 
         @self.get("/jobs/json", response_model=PaginatedJobResponse)
-        async def read_jobs(
+        async def read_jobs_json(
             request: Request,
             queue_name: str = Query("all"),
             state: str = Query("all"),
