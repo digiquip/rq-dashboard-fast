@@ -97,7 +97,7 @@ class RedisQueueDashboard(FastAPI):
         self.protocol = protocol
         self.auth = AuthConfig(auth_config)
 
-        self.rq_dashboard_version = "0.9.0"
+        self.rq_dashboard_version = "0.9.1"
 
         logger = logging.getLogger(__name__)
 
