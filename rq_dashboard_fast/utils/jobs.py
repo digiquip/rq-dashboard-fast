@@ -301,8 +301,8 @@ def convert_queue_job_registry_stats_to_json_dict(
                 "stopped": [job_data_to_dict(job) for job in job_stats.stopped],
             }
             job_stats_dict[job_stats.queue_name] = stats_dict
-            queue_stats_list = [job_stats_dict]
 
+        queue_stats_list = [job_stats_dict]
         return queue_stats_list
     except Exception as error:
         logger.exception(
