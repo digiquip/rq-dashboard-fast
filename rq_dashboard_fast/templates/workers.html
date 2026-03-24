@@ -1,24 +1,6 @@
 {% extends "base.html" %}{% block content %}
 <script>
-  let autoRefreshInterval = null;
-  let lastResponseTime = 0;
-  const MIN_REFRESH_MS = 5000;
-  const MAX_REFRESH_MS = 60000;
-  const protocol = "{{ protocol }}";
-  const host = window.location.host;
-  const prefix = "{{ prefix }}";
-  const baseurl = protocol + "://" + host + prefix;
-
-  function adaptiveInterval() {
-    if (lastResponseTime === 0) return MIN_REFRESH_MS;
-    return Math.min(MAX_REFRESH_MS, Math.max(MIN_REFRESH_MS, lastResponseTime * 3));
-  }
-
-  function scheduleNextRefresh() {
-    clearTimeout(autoRefreshInterval);
-    if (!window.autoRefreshEnabled) return;
-    autoRefreshInterval = setTimeout(updateData, adaptiveInterval());
-  }
+  const { baseurl, scheduleNextRefresh, recordResponseTime, startAutorefresh, stopAutorefresh } = initAutorefresh(updateData, "{{ protocol }}", "{{ prefix }}");
 
   function escapeHtml(s) {
     if (s == null) return '';
@@ -41,15 +23,6 @@
     setTimeout(function () { document.body.removeChild(notification); }, 3000);
   }
 
-  function startAutorefresh() {
-    scheduleNextRefresh();
-  }
-
-  function stopAutorefresh() {
-    clearTimeout(autoRefreshInterval);
-    autoRefreshInterval = null;
-  }
-
   document.addEventListener("DOMContentLoaded", function () {
     if (window.autoRefreshEnabled) { startAutorefresh(); }
   });
@@ -69,12 +42,12 @@
     fetch(baseurl + "/workers/json")
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        lastResponseTime = performance.now() - t0;
+        recordResponseTime(performance.now() - t0);
         updateTable(data);
         scheduleNextRefresh();
       })
       .catch(function (error) {
-        lastResponseTime = performance.now() - t0;
+        recordResponseTime(performance.now() - t0);
         console.error("Error fetching data: ", error);
         showErrorNotification("Error fetching workers data");
         scheduleNextRefresh();

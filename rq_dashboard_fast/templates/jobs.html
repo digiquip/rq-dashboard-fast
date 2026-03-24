@@ -1,13 +1,6 @@
 {% extends "base.html" %}{% block content %}
 <script>
-  let autoRefreshInterval = null;
-  let lastResponseTime = 0;
-  const MIN_REFRESH_MS = 5000;
-  const MAX_REFRESH_MS = 60000;
-  const protocol = "{{ protocol }}";
-  const host = window.location.host;
-  const prefix = "{{ prefix }}";
-  const baseurl = protocol + "://" + host + prefix;
+  const { baseurl, scheduleNextRefresh, recordResponseTime, startAutorefresh, stopAutorefresh } = initAutorefresh(updateJobsData, "{{ protocol }}", "{{ prefix }}");
 
   function escapeHtml(s) {
     if (s == null) return '';
@@ -46,26 +39,6 @@
     notification.textContent = message;
     document.body.appendChild(notification);
     setTimeout(function () { document.body.removeChild(notification); }, 3000);
-  }
-
-  function adaptiveInterval() {
-    if (lastResponseTime === 0) return MIN_REFRESH_MS;
-    return Math.min(MAX_REFRESH_MS, Math.max(MIN_REFRESH_MS, lastResponseTime * 3));
-  }
-
-  function scheduleNextRefresh() {
-    clearTimeout(autoRefreshInterval);
-    if (!window.autoRefreshEnabled) return;
-    autoRefreshInterval = setTimeout(updateJobsData, adaptiveInterval());
-  }
-
-  function startAutorefresh() {
-    scheduleNextRefresh();
-  }
-
-  function stopAutorefresh() {
-    clearTimeout(autoRefreshInterval);
-    autoRefreshInterval = null;
   }
 
   let page = 1;
@@ -145,7 +118,7 @@
         return r.json();
       })
       .then(function (response) {
-        lastResponseTime = performance.now() - t0;
+        recordResponseTime(performance.now() - t0);
         totalPages = response.total_pages;
         totalJobs = response.total;
         page = response.page;
@@ -155,7 +128,7 @@
         scheduleNextRefresh();
       })
       .catch(function (error) {
-        lastResponseTime = performance.now() - t0;
+        recordResponseTime(performance.now() - t0);
         console.error("Error fetching jobs data: ", error);
         showErrorNotification("Error fetching jobs data");
         scheduleNextRefresh();
