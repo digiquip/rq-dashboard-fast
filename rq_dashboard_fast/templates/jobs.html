@@ -336,6 +336,32 @@
       });
   }
 
+  function cleanupStaleJobs() {
+    var selectedQueue = document.getElementById("queue-name-filter").value;
+    var queueLabel = selectedQueue === "all" ? "all queues" : "queue '" + selectedQueue + "'";
+    if (!confirm("Remove stale job IDs from " + queueLabel + "?\n\nThis deletes registry entries whose job data has already been evicted from Redis. The operation cannot be undone.")) return;
+    var btn = document.getElementById("cleanup-btn");
+    setBtnLoading(btn);
+    fetch(baseurl + "/queues/" + encodeURIComponent(selectedQueue) + "/cleanup-stale", {
+      method: "POST",
+      headers: {"X-CSRF-Token": getCsrfToken()}
+    })
+    .then(function(r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    })
+    .then(function(result) {
+      resetBtn(btn);
+      showNotification("Removed " + result.removed + " stale job ID" + (result.removed !== 1 ? "s" : ""));
+      updateJobsData();
+    })
+    .catch(function(error) {
+      console.error("Error cleaning up stale jobs:", error);
+      showErrorNotification("Error cleaning up stale jobs");
+      resetBtn(btn);
+    });
+  }
+
   function requeueJob(job_id, btn) {
     if (!confirm("Requeue job " + shortId(job_id) + "?")) return;
     setBtnLoading(btn);
@@ -380,9 +406,16 @@
 </script>
 
 <div class="max-w-[90%] mx-auto mt-6 px-4">
-  <p class="text-sm text-gray-600 dark:text-gray-400">
-    Filter jobs by state and queue. Hover over timestamps for the full date, over the job name for the full name, or over the short ID for the full job id.
-  </p>
+  <div class="flex items-center justify-between gap-4 flex-wrap">
+    <p class="text-sm text-gray-600 dark:text-gray-400">
+      Filter jobs by state and queue. Hover over timestamps for the full date, over the job name for the full name, or over the short ID for the full job id.
+    </p>
+    {% if access == "admin" %}
+    <button id="cleanup-btn" onclick="cleanupStaleJobs()" class="btn-export shrink-0" title="Remove job IDs from registries whose backing data has been evicted from Redis">
+      Clean up stale jobs
+    </button>
+    {% endif %}
+  </div>
   <table id="jobs" class="data-table table-fixed w-full">
     <thead>
       <tr>

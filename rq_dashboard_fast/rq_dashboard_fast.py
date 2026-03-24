@@ -38,6 +38,7 @@ from rq_dashboard_fast.utils.jobs import (
     JobDataDetailed,
     PaginatedJobResponse,
     QueueJobRegistryStats,
+    cleanup_stale_jobs,
     convert_queue_job_registry_dict_to_list,
     convert_queue_job_registry_stats_to_json_dict,
     delete_job_id,
@@ -346,6 +347,26 @@ class RedisQueueDashboard(FastAPI):
                 raise HTTPException(
                     status_code=500,
                     detail="An error occurred while deleting jobs in queue",
+                )
+
+        @self.post("/queues/{queue_name}/cleanup-stale")
+        def cleanup_stale_jobs_endpoint(queue_name: str, request: Request):
+            try:
+                perms = _get_permissions(request)
+                _require_admin(perms, queue_name)
+                result = cleanup_stale_jobs(
+                    self.redis_url, queue_name, allowed_queues=perms.queues
+                )
+                return result
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.exception(
+                    "An error occurred during stale job cleanup: %s", e
+                )
+                raise HTTPException(
+                    status_code=500,
+                    detail="An error occurred during stale job cleanup",
                 )
 
         @self.get("/queues", response_class=HTMLResponse)
