@@ -49,9 +49,6 @@ def get_schedulers(redis_url: str, allowed_schedulers: list[str]) -> list[Schedu
     result = []
 
     for scheduler in schedulers:
-        if "*" not in allowed_schedulers and scheduler.name not in allowed_schedulers:
-            continue
-
         last_hb = scheduler.last_heartbeat
         if last_hb is None:
             is_stale = True
@@ -68,7 +65,11 @@ def get_schedulers(redis_url: str, allowed_schedulers: list[str]) -> list[Schedu
                 latest_enqueue_time=job.latest_enqueue_time,
             )
             for job in scheduler.get_jobs()
+            if "*" in allowed_schedulers or job.queue_name in allowed_schedulers
         ]
+
+        if not jobs and "*" not in allowed_schedulers:
+            continue
 
         result.append(
             SchedulerData(
